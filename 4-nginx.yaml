@@ -1,0 +1,80 @@
+# Configures Nginx and SSL settings per best pratices from Mozilla etc.
+# https://security.stackexchange.com/a/149818
+
+# ssl_trusted_certificate for OCSP stapling
+
+# http://nginx.org/en/docs/http/ngx_http_core_module.html#try_files
+# directory index of "" is forbidden due to the use of try_files $uri/
+# https://stackoverflow.com/a/38046124
+
+---
+
+- hosts: webservers
+  vars_files:
+    - secrets/users.yaml
+  tasks:
+    - name: Retrieve ffdhe2048 file
+      ansible.builtin.get_url:
+        url: https://ssl-config.mozilla.org/ffdhe2048.txt
+        dest: /etc/nginx/dhparam
+
+    - name: Copying ssl_trusted_certificate (Let’s Encrypt R3 + ISRG Root X1)...
+      ansible.builtin.copy:
+        src: files/lets_encrypt
+        dest: /etc/nginx/lets_encrypt
+
+    - name: Importing SSL configuration for Nginx
+      ansible.builtin.copy:
+        src: files/nginx-ssl_config
+        dest: /etc/nginx/ssl_config
+
+    - name: Create a directory if it does not exist
+      ansible.builtin.file:
+        path: /root/.certs/{{ item.name }}
+        state: directory
+        mode: '0700'
+      with_items: '{{ users }}'
+
+    - name: Temporarily using ssl-cert-snakeoil.key for sites if not exist
+      ansible.builtin.copy:
+        src: /etc/ssl/private/ssl-cert-snakeoil.key
+        dest: /root/.certs/{{ item.name }}/key.pem
+        remote_src: yes
+        force: false
+      with_items: '{{ users }}'
+
+    - name: Temporarily using ssl-cert-snakeoil.pem for sites if not exist
+      ansible.builtin.copy:
+        src: /etc/ssl/certs/ssl-cert-snakeoil.pem
+        dest: /root/.certs/{{ item.name }}/fullchain.pem
+        remote_src: yes
+        force: false
+      with_items: '{{ users }}'
+
+    - name: To get each user's uid
+      ansible.builtin.getent:
+        database: passwd
+
+    - name: Generating site-specific config for each users...
+      ansible.builtin.template:
+        src: templates/nginx-site.conf.j2
+        dest: /etc/nginx/conf.d/{{ item.name }}.conf
+      with_items: '{{ users }}'
+
+    - name: Replacing the default.conf
+      ansible.builtin.copy:
+        src: files/nginx-default.conf
+        dest: /etc/nginx/conf.d/default.conf
+        backup: yes
+
+    - name: Replacing the nginx.conf
+      ansible.builtin.copy:
+        src: files/nginx.conf
+        dest: /etc/nginx/nginx.conf
+        backup: yes
+
+    - name: Restarting nginx
+      ansible.builtin.systemd:
+        state: restarted
+        daemon_reload: true
+        name: nginx

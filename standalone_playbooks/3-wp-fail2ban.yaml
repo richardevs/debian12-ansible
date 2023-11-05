@@ -1,0 +1,93 @@
+# Also suggest to disable WP fail2ban's Site Health Tool by adding the following to wp-config.php:
+# define('WP_FAIL2BAN_SITE_HEALTH_SKIP_FILTERS', true);
+# As we do not allow PHP to wander outside the site folders
+
+# Useful debug commands:
+# firewall-cmd --direct --get-all-rules
+# fail2ban-client -vvv set wordpress-soft banip [IP]
+# fail2ban-client unban --all
+
+---
+
+- hosts: webservers
+  tasks:
+    - name: Installing firewalld as Debian 12's recommeded wrapper for nftables
+      ansible.builtin.apt:
+        name:
+          - firewalld
+        state: latest
+
+    - name: Permitting traffic in default zone for http service
+      ansible.posix.firewalld:
+        service: http
+        permanent: true
+        state: enabled
+
+    - name: Permitting traffic in default zone for https service
+      ansible.posix.firewalld:
+        service: https
+        permanent: true
+        state: enabled
+
+    - name: Reloading firewalld
+      ansible.builtin.systemd:
+        state: reloaded
+        daemon_reload: true
+        name: firewalld
+
+    - name: Copying filter wordpress-hard.conf to /etc/fail2ban/filter.d
+      ansible.builtin.copy:
+        src: files/wordpress-hard.conf
+        dest: /etc/fail2ban/filter.d/wordpress-hard.conf
+
+    - name: Copying filter wordpress-soft.conf to /etc/fail2ban/filter.d
+      ansible.builtin.copy:
+        src: files/wordpress-soft.conf
+        dest: /etc/fail2ban/filter.d/wordpress-soft.conf
+
+    - name: Creating the jail file for wp-fail2ban
+      ansible.builtin.copy:
+        dest: /etc/fail2ban/jail.d/wp-fail2ban.conf
+        content: |
+          [wordpress-hard]
+          enabled = true
+          filter = wordpress-hard
+          bantime = 1w
+          maxretry = 1
+          port = http,https
+          banaction = firewallcmd-multiport
+
+          [wordpress-soft]
+          enabled = true
+          filter = wordpress-soft
+          findtime = 12h
+          bantime = 1w
+          maxretry = 3
+          port = http,https
+          banaction = firewallcmd-multiport
+
+    - name: Removing the faulty defaults-debian.conf that does not use systemd
+      ansible.builtin.file:
+        path: /etc/fail2ban/jail.d/defaults-debian.conf
+        state: absent
+
+    - name: Fetching the current egress IP
+      ansible.builtin.uri:
+        url: https://ifconfig.me/ip
+        return_content: true
+      register: ifconfigme
+      delegate_to: localhost
+
+    - name: Setting current egress IP as ignoreip
+      ansible.builtin.copy:
+        dest: /etc/fail2ban/jail.local
+        content: |
+          [DEFAULT]
+          ignoreip = {{ ifconfigme.content }}
+          backend = systemd
+
+    - name: Restarting fail2ban
+      ansible.builtin.systemd:
+        state: restarted
+        daemon_reload: true
+        name: fail2ban

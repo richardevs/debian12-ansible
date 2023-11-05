@@ -1,0 +1,119 @@
+# If you are missing MySQL module on source instance, this error might occur:
+# A MySQL module is required: for Python 2.7 either PyMySQL, or MySQL-python, or for Python 3.X mysqlclient or PyMySQL. Consider setting ansible_python_interpreter to use the intended Python version.
+
+# Mitigation: pip3 install pymysql
+
+# Before the migration, consider doing a slow shutdown on old DB, and then use --innodb-read-only=1 to put the server into R/O mode, in order to prevent any new data writing.
+# https://dev.mysql.com/doc/refman/5.7/en/innodb-read-only-instance.html
+
+---
+
+- hosts: webservers
+  remote_user: root
+  vars:
+    ansible_python_interpreter: /usr/bin/python3
+  vars_files:
+    - ../secrets/users.yaml
+  tasks:
+    - name: Creating source folder /root/db_dumps (for security concerns)
+      ansible.builtin.file:
+        path: /root/db_dumps
+        state: directory
+        owner: root
+        mode:  '700'
+      delegate_to: '{{ migrate_src_ip }}'
+
+    - name: Creating dest folder /root/db_dumps (for security concerns)
+      ansible.builtin.file:
+        path: /root/db_dumps
+        state: directory
+        owner: root
+        mode:  '700'
+
+    - name: Dumping the database
+      community.mysql.mysql_db:
+        state: dump
+        name: '{{ item.migrate.db }}'
+        target: /root/db_dumps/{{ item.migrate.db }}.sql
+      with_items: '{{ users }}'
+      when: 
+        - item.migrate.db is defined
+        - item.php_enabled == true
+      delegate_to: '{{ migrate_src_ip }}'
+
+    - name: Pushing the file to dest
+      ansible.posix.synchronize:
+        src: /root/db_dumps/{{ item.migrate.db }}.sql
+        dest: /root/db_dumps/{{ item.migrate.db }}.sql
+        archive: false
+        times: true
+        checksum: true
+      with_items: '{{ users }}'
+      when: 
+        - item.migrate.db is defined
+        - item.php_enabled == true
+      delegate_to: '{{ migrate_src_ip }}'
+
+    - name: Drop the DB once due to when state is import, it will import the dump file each time if run more than once.
+      community.mysql.mysql_db:
+        name: "{{ item.name }}"
+        state: absent
+        login_unix_socket: /run/mysqld/mysqld.sock
+      with_items: '{{ users }}'
+      when: 
+        - item.migrate.db is defined
+        - item.php_enabled == true
+
+    - name: Recreating the dropped DB....
+      community.mysql.mysql_db:
+        name: "{{ item.name }}"
+        state: present
+        login_unix_socket: /run/mysqld/mysqld.sock
+      with_items: '{{ users }}'
+      when: 
+        - item.migrate.db is defined
+        - item.php_enabled == true
+
+    - name: Restoring from dump
+      community.mysql.mysql_db:
+        name: "{{ item.name }}"
+        state: import
+        target: /root/db_dumps/{{ item.migrate.db }}.sql
+        login_unix_socket: /run/mysqld/mysqld.sock
+      with_items: '{{ users }}'
+      when: 
+        - item.migrate.db is defined
+        - item.php_enabled == true
+
+    # https://make.wordpress.org/cli/handbook/guides/installing/#recommended-installation
+    - name: Setting the new DB information for WordPress (Requires installation of wp-cli)
+      ansible.builtin.shell: |
+        {
+        if [ -f /home/{{ item.name }}/public_html/wp-config.php ]; then
+            wp config set DB_HOST localhost
+            wp config set DB_NAME {{ item.name }}
+            wp config set DB_USER {{ item.name }}
+            wp config set DB_PASSWORD '{{ lookup('ansible.builtin.file', "../secrets/{{ item.name }}.db.psw") }}'
+            wp core is-installed && exit 0
+        fi
+        }
+      with_items: '{{ users }}'
+      become_user: '{{ item.name }}'
+      become: yes
+      args:
+        executable: /bin/bash
+        chdir: /home/{{ item.name }}/public_html
+      when: 
+        - item.migrate.db is defined
+        - item.php_enabled == true
+
+    - name: Cleaning up source folder /root/db_dumps
+      ansible.builtin.file:
+        path: /root/db_dumps
+        state: absent
+      delegate_to: '{{ migrate_src_ip }}'
+
+    - name: Cleaning up dest folder /root/db_dumps
+      ansible.builtin.file:
+        path: /root/db_dumps
+        state: absent

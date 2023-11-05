@@ -1,0 +1,39 @@
+# Run this playbook to execute all the essential steps for setting up
+# a Nginx + MariaDB + PHP environment on Debian 12
+
+# This playbook is based off the default Alibaba Cloud Debian 12.2 image
+# And should only be used for learning purposes (** some steps are customized and not generic **)
+
+# - name:
+#   ansible.builtin.import_playbook:
+
+# How-to:
+# ansible-playbook -i settings.yaml main.yaml -v
+
+---
+
+- name: 1. Installing required system packages
+  ansible.builtin.import_playbook: 1-install.yaml
+
+- name: 2. Creating users for each site
+  ansible.builtin.import_playbook: 2-create-users.yaml
+
+- name: 3. Setting up PHP-FPM
+  ansible.builtin.import_playbook: 3-php-fpm.yaml
+
+- name: 4. Setting up NGINX
+  ansible.builtin.import_playbook: 4-nginx.yaml
+
+- name: 5. Setting up acme.sh client
+  ansible.builtin.import_playbook: 5-acme-sh.yaml
+
+- name: 6. Creating databases for each site and setting up users
+  ansible.builtin.import_playbook: 6-create-db.yaml
+
+# What could be next?
+
+#   - Set a new hostname using hostnamectl
+#   - Configure firewall rules for fail2ban (e.g. wp-fail2ban)
+#   - By default, PasswordAuthentication is disbale for SSH on this image, but you should double check
+#   - Implement backup solutions for database and site files
+#   - Check systemctl list-unit-files --state=enabled to see if any unintended services are loaded by default

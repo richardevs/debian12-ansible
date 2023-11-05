@@ -1,0 +1,105 @@
+---
+
+- hosts: webservers
+  tasks:
+    - name: Set timezone to Asia/Tokyo
+      community.general.timezone:
+        name: Asia/Tokyo
+
+    - name: Remove default /etc/motd
+      ansible.builtin.file:
+        path: /etc/motd
+        state: absent
+
+    - name: Replace Message Of The Day
+      ansible.builtin.copy:
+        src: files/motd.sh
+        dest: /etc/profile.d/motd.sh
+      tags: run_once
+
+    - name: Enable BBR - adding default_qdisc
+      ansible.posix.sysctl:
+        name: net.core.default_qdisc
+        value: 'fq'
+        state: present
+
+    - name: Enable BBR - adding tcp_congestion_control
+      ansible.posix.sysctl:
+        name: net.ipv4.tcp_congestion_control
+        value: 'bbr'
+        state: present
+
+    - name: Install https://github.com/nginxinc/ansible-role-nginx
+      ansible.builtin.command: ansible-galaxy install nginxinc.nginx,main
+      delegate_to: localhost
+
+    - name: Update all packages to their latest version
+      ansible.builtin.apt:
+        name: "*"
+        state: latest
+        update_cache: yes
+
+    - name: Useful tools, dependencies by MariaDB repository etc.
+      ansible.builtin.apt:
+        name:
+          - jq
+          - acl
+          - git
+          - htop
+          - tmux
+          - nmap
+          - curl
+          - tree
+          - iftop
+          - vnstat
+          - fail2ban
+          - ssl-cert
+          - python3-pymysql
+          - systemd-timesyncd
+          - unattended-upgrades
+          - apt-transport-https
+        state: latest
+
+    - name: Enable unattended-upgrades with default settings
+      ansible.builtin.copy:
+        dest: /etc/apt/apt.conf.d/20auto-upgrades
+        content: |
+          APT::Periodic::Update-Package-Lists "1";
+          APT::Periodic::Unattended-Upgrade "1";
+
+    - name: Load and execute Ansible NGINX Role
+      ansible.builtin.include_role:
+        name: nginxinc.nginx
+
+    - name: Import the MariaDB repository key
+      ansible.builtin.apt_key:
+        url: https://mariadb.org/mariadb_release_signing_key.pgp
+        keyring: /etc/apt/keyrings/mariadb-keyring.pgp
+        state: present
+
+    - name: Copying MariaDB repository (10.11 - LTS)
+      ansible.builtin.copy:
+        src: files/mariadb.sources
+        dest: /etc/apt/sources.list.d/mariadb.sources
+
+    - name: Installing MariaDB repository (10.11)
+      ansible.builtin.apt:
+        name:
+          - mariadb-server
+        state: latest
+
+    # https://make.wordpress.org/hosting/handbook/server-environment/#php-extensions
+    - name: Installing official Debian stable PHP 8.2
+      ansible.builtin.apt:
+        name:
+          - php8.2
+          - php8.2-mbstring
+          - php8.2-imagick
+          - php8.2-xml
+          - php8.2-zip
+          - php8.2-opcache
+          - php8.2-mysql
+          - php8.2-intl
+          - php8.2-curl
+          - php8.2-fpm
+        state: latest

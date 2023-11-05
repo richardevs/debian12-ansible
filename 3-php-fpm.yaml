@@ -1,0 +1,46 @@
+# The idea is to run ondemand mode PHP-FPM pool using each site's user account
+# With the extra false sense of security "open_basedir" to limit PHP access to public_html/
+# This is not perfect but better than 1 PHP-FPM user having access to all sites' files
+
+# PHP-FPM will listen on port 2+{{uid}} for each user
+
+---
+
+- hosts: webservers
+  vars_files:
+    - secrets/users.yaml
+  tasks:
+    - name: Applying php.ini... (disable_functions etc.)
+      ansible.builtin.copy:
+        src: files/php.ini
+        dest: /etc/php/8.2/fpm/php.ini
+        backup: yes
+
+    - name: To get each user's uid
+      ansible.builtin.getent:
+        database: passwd
+
+    - name: Creating pool conf for each user... (when php_enabled)
+      ansible.builtin.template:
+        src: templates/pool.conf.j2
+        dest: /etc/php/8.2/fpm/pool.d/{{ item.name }}.conf
+      with_items: '{{ users }}'
+      when: item.php_enabled == True
+
+    - name: Backing up default www.conf...
+      ansible.builtin.copy:
+        src: /etc/php/8.2/fpm/pool.d/www.conf
+        dest: /etc/php/8.2/fpm/pool.d/www.conf.3960.{{ ansible_date_time.iso8601 }}~
+        remote_src: yes
+      ignore_errors: true
+
+    - name: Deleteing default www.conf...
+      ansible.builtin.file:
+        path: /etc/php/8.2/fpm/pool.d/www.conf
+        state: absent
+
+    - name: Restart php8.2-fpm
+      ansible.builtin.systemd:
+        state: restarted
+        daemon_reload: true
+        name: php8.2-fpm

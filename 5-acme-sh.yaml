@@ -1,0 +1,64 @@
+# Something we need to watch out is that Let's Encrypt by default uses the DST Root CA X3 cross-signed chain.
+# https://github.com/acmesh-official/acme.sh/wiki/Preferred-Chain
+# And that could be an issue for the ssl_trusted_certificate settings on Nginx in the future when Let's Encrypt begins to make changes.
+
+---
+
+- hosts: webservers
+  vars_files:
+    - secrets/users.yaml
+  tasks:
+    - name: Checking if there is already an installation of acme.sh...
+      ansible.builtin.stat:
+        path: /root/.acme.sh/acme.sh
+      register: acme_path
+
+    - name: Using the git approach to install acme.sh
+      ansible.builtin.git:
+        repo: 'https://github.com/acmesh-official/acme.sh.git'
+        dest: /root/acme.sh
+      when: acme_path.stat.exists == false
+
+    - name: Install acme.sh
+      ansible.builtin.command: ./acme.sh --install
+      args:
+        chdir: /root/acme.sh
+      when: acme_path.stat.exists == false
+
+    - name: Remove git repo folder
+      ansible.builtin.file:
+        path: /root/acme.sh
+        state: absent
+
+    - name: Reset default CA to Let's Encrypt
+      ansible.builtin.command: /root/.acme.sh/acme.sh --set-default-ca --server letsencrypt
+
+    - name: Looking for acme-sh.conf in secrets/, if found, append to account.conf...
+      ansible.builtin.blockinfile:
+        block: "{{ lookup('ansible.builtin.file', './secrets/acme-sh.conf') }}"
+        path: /root/.acme.sh/account.conf
+
+    - pause:
+        prompt: Issue certificates for all preload_enabled sites now (y/n)? **NOTE** this step is not generic
+      register: issuenow
+    
+    - name: Issue SSL certificates (with DNS plugin, this step is not generic)
+      ansible.builtin.command: /root/.acme.sh/acme.sh --issue --dns dns_me --keylength ec-384 {% for i in item.domain %}-d {{ i }} {% endfor %}
+      with_items: '{{ users }}'
+      register: issue_result
+      failed_when: "issue_result.rc != 0 and issue_result.rc != 2"
+      when:
+        - issuenow.user_input == 'y'
+        - item.preload_enabled == true
+
+    - name: Install the certificates to Nginx
+      ansible.builtin.command: |
+        /root/.acme.sh/acme.sh --install-cert {% for i in item.domain %}-d {{ i }} {% endfor %} \
+        --cert-file      /root/.certs/{{ item.name }}/cert.pem \
+        --key-file       /root/.certs/{{ item.name }}/key.pem  \
+        --fullchain-file /root/.certs/{{ item.name }}/fullchain.pem \
+        --reloadcmd      "systemctl reload nginx.service"
+      with_items: '{{ users }}'
+      when:
+        - issuenow.user_input == 'y'
+        - item.preload_enabled == true

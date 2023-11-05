@@ -1,0 +1,30 @@
+# FORMAT
+
+# migrate_src_ip: (Optional, this is only needed for standalone_playbooks/rsync-migrate.yaml)
+# users:
+
+#   - name:
+#     domain:
+#       - 
+#       - 
+#     php_enabled: true # Determine if a php-fpm pool will be created, and sets up PHP setting on NGINX
+#     preload_enabled: true # Determine if preload is added to the Strict-Transport-Security
+#     rsync: (Optional, this is only needed for standalone_playbooks/rsync-migrate.yaml)
+#       src: folder
+#       db: # database name on the source instance, optional
+
+# Note that php_enabled also determines if a database is created
+
+---
+migrate_src_ip: 127.0.0.1
+users:
+
+  - name: example
+    domain:
+      - example.com
+      - www.example.com
+    php_enabled: true
+    preload_enabled: true
+    migrate:
+      src: /home/example/public_html
+      db: example

@@ -1,0 +1,26 @@
+---
+
+- hosts: webservers
+  tasks:
+    - name: Adding source and apt key
+      ansible.builtin.shell: |
+        echo "deb [signed-by=/usr/share/keyrings/cloud.google.asc] https://packages.cloud.google.com/apt cloud-sdk main" | sudo tee /etc/apt/sources.list.d/google-cloud-sdk.list
+        curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo tee /usr/share/keyrings/cloud.google.asc
+
+    - name: Installing Google Cloud CLI
+      ansible.builtin.apt:
+        name:
+          - google-cloud-cli
+        state: latest
+        update_cache: yes
+
+    - name: Copying Service Account key (Recommended to have permission to the GCS bucket and Secret Manager Secret Accessor)
+      ansible.builtin.copy:
+        src: secrets/gcloud_service_account.json
+        dest: /root/.gcloud_service_account.json
+        mode: '0600'
+    
+    - name: Initializing Service Account...
+      ansible.builtin.shell: |
+        gcloud auth activate-service-account $(cat /root/.gcloud_service_account.json | jq -r '.client_email') --key-file=/root/.gcloud_service_account.json
+        gcloud config set project $(cat /root/.gcloud_service_account.json | jq -r '.project_id')

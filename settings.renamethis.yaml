@@ -1,0 +1,7 @@
+# Rename this file to settings.yaml after adding your remote Debian 12 host IP
+
+webservers:
+  hosts: # Enter your remote server IP here
+  vars:
+    ansible_user: root
+    ansible_connection: ssh

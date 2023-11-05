@@ -1,0 +1,39 @@
+---
+
+- hosts: webservers
+  vars_files:
+    - secrets/users.yaml
+  tasks:
+    - name: Creating system users...
+      ansible.builtin.user:
+        name: "{{ item.name }}"
+        generate_ssh_key: yes
+        ssh_key_type: ed25519
+      with_items: '{{ users }}'
+
+    # 710 to allow nginx to stat() into the directory
+    - name: Setting home directory permission
+      ansible.builtin.file:
+        path: "/home/{{ item.name }}"
+        state: directory
+        owner: "{{ item.name }}"
+        group: "{{ item.name }}"
+        mode:  '710'
+      with_items: '{{ users }}'
+
+    # g=rx for nginx within the user group
+    - name: Creating public_html folder for each user
+      ansible.builtin.file:
+        path: "/home/{{ item.name }}/public_html"
+        state: directory
+        owner: "{{ item.name }}"
+        group: "{{ item.name }}"
+        mode:  '750'
+      with_items: '{{ users }}'
+
+    - name: Adding nginx to each user group, so it has R/O access to public_html
+      ansible.builtin.user:
+        name: nginx
+        groups: "{{ item.name }}"
+        append: yes
+      with_items: '{{ users }}'

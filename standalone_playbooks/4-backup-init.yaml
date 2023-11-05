@@ -1,0 +1,75 @@
+# 1. Make daily DB backups to /home/db_dumps/
+# 2. Set up disaster recovery to Google Cloud Storage
+# 3. Ofc, you should always have the native cloud snapshot feature turned on
+#    These are only extra measures
+
+# gsutil-rsync-exclude-hidden-files
+# https://stackoverflow.com/a/35210687
+
+# It is recommended to NOT run rsync task with a low memory (e.g. 1GB) instance, it may cause the system to be unresponsive (especially if swap is not enabled)
+
+---
+
+- hosts: webservers
+  vars_files:
+    - secrets/backup.yaml
+  tasks:
+    # - name: This playbook requires the installation of gcloud CLI
+
+    - name: Creating the db_dumps folder
+      ansible.builtin.file:
+        path: /home/db_dumps
+        state: directory
+        owner: root
+        group: root
+        mode: '0700'
+
+    - name: Randomize an encryption password and save to Google Cloud Secret Manager (name should be db_dumps)
+      ansible.builtin.shell: |
+        # This is only for testing access, you will have to manually create the secret
+        /usr/bin/gcloud secrets versions access latest --secret=db_dumps
+
+    - name: Setting up daily dump task
+      ansible.builtin.cron:
+        name: "dump all databases daily"
+        minute: "30"
+        hour: "2"
+        job: |
+          /usr/bin/mysqldump --all-databases | /usr/bin/openssl enc -aes128 -pbkdf2 -pass pass:$(/usr/bin/gcloud secrets versions access latest --secret=db_dumps) > /home/db_dumps/d-$(date +"%Y-%m-%dT%H:%M%z").sql
+
+    - name: Remove any dump that is older than x days
+      ansible.builtin.cron:
+        name: "remove old databases dump"
+        minute: "50"
+        hour: "2"
+        job: |
+          find /home/db_dumps/d-* -mtime +3 -exec rm {} \;
+
+    - name: Testing permissions to the gcs_bucket
+      ansible.builtin.shell: |
+        /usr/bin/gcloud storage ls gs://{{ gcs_bucket }}
+
+    - name: Set up rsync log folder
+      ansible.builtin.file:
+        path: /root/rsync_logs
+        state: directory
+        owner: root
+        group: root
+        mode: '0700'
+
+    - name: Setting up home directory rsync task to Google Cloud Storage (gcloud storage rsync)
+      ansible.builtin.cron:
+        name: "rsync backup with gcs"
+        minute: "0"
+        hour: "3"
+        day: "*/16"
+        job: |
+          /usr/bin/gcloud storage rsync -c -R -U -x '\..*|.*/\.[^/]*$|.*/\..*/.*$|_.*' /home gs://{{ gcs_bucket }}/home --delete-unmatched-destination-objects &> /root/rsync_logs/$(date +"%Y-%m-%dT%H:%M%z").log
+
+    - name: Remove any rsync log that is older than x days
+      ansible.builtin.cron:
+        name: "remove old rsync logs"
+        minute: "50"
+        hour: "2"
+        job: |
+          find /root/rsync_logs/* -mtime +70 -exec rm {} \;

@@ -1,0 +1,48 @@
+# https://mariadb.com/kb/en/mysql_secure_installation/
+# Note that many of the reasons for the existence of this script no longer apply. 
+# In particular, from MariaDB 10.4, Unix socket authentication is applied by default, and there is usually no need to create a root password. 
+# See Authentication from MariaDB 10.4.
+
+# Randomly generated passwords will be saved locally to secrets/
+
+---
+- hosts: webservers
+  vars_files:
+    - secrets/users.yaml
+  tasks:
+    - name: Create a new database for the user, only for php_enabled sites
+      community.mysql.mysql_db:
+        name: "{{ item.name }}"
+        state: present
+        login_unix_socket: /run/mysqld/mysqld.sock
+      with_items: '{{ users }}'
+      when: item.php_enabled == true
+
+    - name: Create database user with specific database privileges, and then output a random password to secrets/[name].db.psw
+      community.mysql.mysql_user:
+        name: "{{ item.name }}"
+        password: "{{ lookup('ansible.builtin.password', \"secrets/{{ item.name }}.db.psw\", chars=['ascii_letters', 'digits', 'punctuation']) }}"
+        priv: "{{ item.name }}.*:ALL"
+        state: present
+        login_unix_socket: /run/mysqld/mysqld.sock
+      with_items: '{{ users }}'
+      when: item.php_enabled == true
+
+    - name: Creating DB log directory...
+      ansible.builtin.file:
+        path: /var/log/mysql
+        state: directory
+        owner: mysql
+        mode: '2750'
+
+    - name: Enabling binary logs...
+      ansible.builtin.copy:
+        src: files/mariadb.50-server.cnf
+        dest: /etc/mysql/mariadb.conf.d/50-server.cnf
+        backup: yes
+
+    - name: Restarting MariaDB...
+      ansible.builtin.systemd:
+        state: restarted
+        daemon_reload: true
+        name: mariadb

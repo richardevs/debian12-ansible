@@ -1,0 +1,54 @@
+# Set the old website folder as src and dest to the new public_html/
+# archive is false because we do not want to migrate the permissions
+# Quick ref: https://serverfault.com/a/141778
+# Warning: delete is set to true - Synchronize and delete files in dest that are not found in src
+
+# https://linux.die.net/man/1/rsync
+# To give new files the destination-default permissions (while leaving existing files unchanged),
+# make sure that the --perms option is off and use --chmod=ugo=rwX (which ensures that all non-masked bits get enabled).
+
+# Tips: Since we cannot force change the remote IP (but the rsync command was running on source instance anyway),
+# it should be more cost effective to run this playbook on the source instance so we can connect to dest via Internal IP.
+# You may also comment out delegate_to: '{{ rsync_src_ip }}' when you do so
+
+---
+
+- hosts: webservers
+  remote_user: root
+  vars_files:
+    - ../secrets/users.yaml
+  tasks:
+    # - Manually adding source instance SSH public key to dest
+    - name: Sync remote src to dest on the new instance
+      ansible.posix.synchronize:
+        src: "{{ item.migrate.src + '/' }}"
+        dest: "/home/{{ item.name }}/public_html"
+        archive: false
+        perms: false
+        times: true
+        delete: true
+        recursive: true
+        rsync_opts:
+          - "--chmod ugo=rw"
+      with_items: '{{ users }}'
+      when: item.migrate.src is defined
+      delegate_to: '{{ migrate_src_ip }}'
+
+    - name: Fix owner and groups after synchronization
+      ansible.builtin.file:
+        path: "/home/{{ item.name }}/public_html"
+        state: directory
+        recurse: yes
+        owner: "{{ item.name }}"
+        group: "{{ item.name }}"
+      with_items: '{{ users }}'
+      when: item.migrate.src is defined
+
+    - name: Fix execute bit for all folders after synchronization
+      ansible.builtin.shell: |
+        find /home/{{ item.name }}/public_html -type d -exec chmod ug+x {} \;
+      with_items: '{{ users }}'
+      args:
+        executable: /bin/bash
+        chdir: /home/{{ item.name }}/public_html
+      when: item.migrate.src is defined

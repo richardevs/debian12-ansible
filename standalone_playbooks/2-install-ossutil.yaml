@@ -1,0 +1,29 @@
+---
+
+- hosts: webservers
+  vars_files:
+    - secrets/ossutil.yaml
+
+  tasks:
+    - name: Checking if ossutil is installed
+      ansible.builtin.stat:
+        path: /usr/bin/ossutil
+      register: ossutil_path
+
+    - name: Download ossutil install script
+      ansible.builtin.get_url:
+        url: https://gosspublic.alicdn.com/ossutil/install.sh
+        dest: /root/oss_install.sh
+      when: ossutil_path.stat.exists == false
+
+    - name: Install Alibaba Cloud ossutil
+      ansible.builtin.command: bash /root/oss_install.sh
+      when: ossutil_path.stat.exists == false
+
+    - name: Cleanup ossutil install script
+      ansible.builtin.file:
+        path: /root/oss_install.sh
+        state: absent
+
+    - name: Creates ossutil config
+      ansible.builtin.command: /usr/bin/ossutil config -e {{ endpoint }} -i {{ accessKeyID }} -k {{ accessKeySecret }}
