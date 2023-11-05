@@ -78,13 +78,15 @@
       register: ifconfigme
       delegate_to: localhost
 
+    # https://github.com/fail2ban/fail2ban/issues/2653
+    # https://forums.invis.net/t/using-systemd-with-wp-fail2ban/68
     - name: Setting current egress IP as ignoreip
       ansible.builtin.copy:
         dest: /etc/fail2ban/jail.local
         content: |
           [DEFAULT]
           ignoreip = {{ ifconfigme.content }}
-          backend = systemd
+          backend = systemd[journalflags=1]
 
     - name: Restarting fail2ban
       ansible.builtin.systemd:
