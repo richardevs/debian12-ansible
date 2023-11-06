@@ -14,7 +14,7 @@ server {
     location = /xmlrpc.php {
         deny all;
         access_log off;
-        error_log off;
+        error_log /dev/null;
     }
 
     location ~* /(?:uploads|files)/.*\.php$ {
