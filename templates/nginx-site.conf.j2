@@ -17,7 +17,7 @@ server {
         error_log /dev/null;
     }
 
-    location ~* /(?:uploads|files)/.*\.php$ {
+    location ~* /(?:wp-content|uploads|files)/.*\.php$ {
         deny all;
     }
 

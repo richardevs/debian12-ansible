@@ -1,0 +1,29 @@
+# Evaluating the use of https://github.com/mitchellkrogza/nginx-ultimate-bad-bot-blocker
+# Putting the robots.txt version in place to mitigate some portions first
+
+---
+
+- hosts: webservers
+  vars_files:
+    - ../secrets/users.yaml
+  tasks:
+    - name: Downloading the newest robots.txt...
+      ansible.builtin.get_url:
+        url: https://raw.githubusercontent.com/mitchellkrogza/nginx-ultimate-bad-bot-blocker/master/robots.txt/robots.txt
+        dest: /tmp/robots.txt
+
+    - name: Manually adding some more bad bots...
+      ansible.builtin.blockinfile:
+        block: |
+          User-agent: Amazonbot
+          Disallow: /
+        path: /tmp/robots.txt
+
+    - name: Copy robots.txt to each site's root...
+      ansible.builtin.copy:
+        src: /tmp/robots.txt
+        dest: "/home/{{ item.name }}/public_html/robots.txt"
+        owner: "{{ item.name }}"
+        group: "{{ item.name }}"
+        remote_src: yes
+      with_items: '{{ users }}'
