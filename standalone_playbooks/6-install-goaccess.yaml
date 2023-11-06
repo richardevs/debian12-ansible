@@ -1,0 +1,21 @@
+---
+
+- hosts: webservers
+  tasks:
+    - name: Installing goaccess...
+      ansible.builtin.apt:
+        name:
+          - goaccess
+        state: latest
+        update_cache: yes
+
+    # Thanks to https://gist.github.com/mvasilenko/b8c47616fa74de63dcc030508c53e7c1
+    - name: Adding apm log format settings to conf...
+      ansible.builtin.blockinfile:
+        block: |
+          time-format %T
+          date-format %d/%b/%Y
+          log_format "%d:%t +%^" server_name=%v client=%h method=%m request="%r" request_length=%^ status=%s bytes_sent=%b body_bytes_sent=%^ referer=%R user_agent="%^" upstream_addr=%^ upstream_status=%^ request_time=%T upstream_response_time=%^ upstream_connect_time=%^ upstream_header_time=%^
+        path: /etc/goaccess/goaccess.conf
+
+    # Usage: goaccess /var/log/nginx/access.log
