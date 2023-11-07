@@ -35,7 +35,7 @@
         minute: "30"
         hour: "2"
         job: |
-          /usr/bin/mysqldump --all-databases | /usr/bin/openssl enc -aes128 -pbkdf2 -pass pass:$(/usr/bin/gcloud secrets versions access latest --secret=db_dumps) > /home/db_dumps/d-$(date +"%Y-%m-%dT%H:%M%z").sql
+          /usr/bin/mysqldump --all-databases | /usr/bin/openssl enc -aes128 -pbkdf2 -pass pass:$(/usr/bin/gcloud secrets versions access latest --secret=db_dumps) > /home/db_dumps/d-$(date +"\%Y-\%m-\%dT\%H:\%M\%z").sql
 
     - name: Remove any dump that is older than x days
       ansible.builtin.cron:
@@ -64,7 +64,7 @@
         hour: "3"
         day: "*/16"
         job: |
-          /usr/bin/gcloud storage rsync -c -R -U -x '\..*|.*/\.[^/]*$|.*/\..*/.*$|_.*' /home gs://{{ gcs_bucket }}/home --delete-unmatched-destination-objects &> /root/rsync_logs/$(date +"%Y-%m-%dT%H:%M%z").log
+          /usr/bin/gcloud storage rsync -c -R -U -x '\..*|.*/\.[^/]*$|.*/\..*/.*$|_.*' /home gs://{{ gcs_bucket }}/home --delete-unmatched-destination-objects &> /root/rsync_logs/$(date +"\%Y-\%m-\%dT\%H:\%M\%z").log
 
     - name: Remove any rsync log that is older than x days
       ansible.builtin.cron:
