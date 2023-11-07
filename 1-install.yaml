@@ -15,7 +15,6 @@
       ansible.builtin.copy:
         src: files/motd.sh
         dest: /etc/profile.d/motd.sh
-      tags: run_once
 
     - name: Enable BBR - adding default_qdisc
       ansible.posix.sysctl:
@@ -66,6 +65,12 @@
         content: |
           APT::Periodic::Update-Package-Lists "1";
           APT::Periodic::Unattended-Upgrade "1";
+
+    - name: Adding nginx repo for unattended-upgrades
+      ansible.builtin.copy:
+        src: files/50unattended-upgrades
+        dest: /etc/apt/apt.conf.d/50unattended-upgrades
+        backup: yes
 
     - name: Load and execute Ansible NGINX Role
       ansible.builtin.include_role:
