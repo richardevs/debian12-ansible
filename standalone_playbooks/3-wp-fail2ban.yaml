@@ -17,6 +17,12 @@
           - firewalld
         state: latest
 
+    - name: Fixing a condition race issue between firewalld and cloud-init (see https://github.com/richardevs/debian12-ansible/issues/1 for more)
+      ansible.builtin.copy:
+        src: files/firewalld.service
+        dest: /lib/systemd/system/firewalld.service
+        backup: yes
+
     - name: Permitting traffic in default zone for http service
       ansible.posix.firewalld:
         service: http
