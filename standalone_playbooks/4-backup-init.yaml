@@ -16,6 +16,12 @@
   tasks:
     # - name: This playbook requires the installation of gcloud CLI
 
+    - name: Sets the cron to use /bin/bash
+      ansible.builtin.cron:
+        name: SHELL
+        env: yes
+        job: /bin/bash
+
     - name: Creating the db_dumps folder
       ansible.builtin.file:
         path: /home/db_dumps
