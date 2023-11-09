@@ -16,6 +16,12 @@
         src: files/motd.sh
         dest: /etc/profile.d/motd.sh
 
+    - name: Changing OpenSSH LogLevel to VERBOSE
+      ansible.builtin.lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: '^LogLevel '
+        line: LogLevel VERBOSE
+
     - name: Enable BBR - adding default_qdisc
       ansible.posix.sysctl:
         name: net.core.default_qdisc
