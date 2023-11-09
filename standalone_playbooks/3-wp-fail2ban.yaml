@@ -94,8 +94,20 @@
           ignoreip = {{ ifconfigme.content }}
           backend = systemd[journalflags=1]
 
+    - name: Changing the banaction to ban the whole /24 subnet range
+      ansible.builtin.copy:
+        src: files/firewalld-multiport.conf
+        dest: /etc/fail2ban/action.d/firewallcmd-multiport.conf
+        backup: yes
+
     - name: Restarting fail2ban
       ansible.builtin.systemd:
         state: restarted
         daemon_reload: true
         name: fail2ban
+
+    - name: Reloads nginx to shut down persistent connection that could have been established during the restart
+      ansible.builtin.systemd:
+        state: reloaded
+        daemon_reload: true
+        name: nginx
