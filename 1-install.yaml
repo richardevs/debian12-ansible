@@ -59,6 +59,7 @@
           - vnstat
           - fail2ban
           - ssl-cert
+          - conntrack
           - python3-pymysql
           - systemd-timesyncd
           - unattended-upgrades
