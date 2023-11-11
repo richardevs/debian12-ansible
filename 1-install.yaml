@@ -79,6 +79,12 @@
         dest: /etc/apt/apt.conf.d/50unattended-upgrades
         backup: yes
 
+    - name: NeverAutoRemove mariadb-plugin-provider-* (false-positive issue)
+      ansible.builtin.copy:
+        src: files/01autoremove
+        dest: /etc/apt/apt.conf.d/01autoremove
+        backup: yes
+
     - name: Load and execute Ansible NGINX Role
       ansible.builtin.include_role:
         name: nginxinc.nginx
