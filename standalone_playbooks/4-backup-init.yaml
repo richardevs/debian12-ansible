@@ -7,6 +7,7 @@
 # https://stackoverflow.com/a/35210687
 
 # It is recommended to NOT run rsync task with a low memory (e.g. 1GB) instance, it may cause the system to be unresponsive (especially if swap is not enabled)
+# Disclaimer: ^^^ This issue could also be caused by Alibaba Cloud CloudMonitor Agent as test runs seem to suggest, with a friend of mine having the same suspicion.
 
 ---
 
