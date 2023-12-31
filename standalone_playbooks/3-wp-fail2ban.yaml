@@ -72,6 +72,30 @@
           port = http,https
           banaction = firewallcmd-multiport
 
+    - name: Creating the filter file for NGINX access forbidden log
+      ansible.builtin.copy:
+        dest: /etc/fail2ban/filter.d/nginx-access-forbidden.conf
+        content: |
+          [Definition]
+          failregex = ^.* \[error\] \d+#\d+: .* forbidden .*, client: <HOST>, .*$
+
+          ignoreregex = 
+
+    - name: Creating the jail file for NGINX access forbidden log
+      ansible.builtin.copy:
+        dest: /etc/fail2ban/jail.d/nginx-access-forbidden.conf
+        content: |
+          [nginx-access-forbidden]
+          enabled = true
+          backend = auto
+          filter = nginx-access-forbidden
+          logpath = /var/log/nginx/error.log
+          findtime = 12h
+          bantime = 1w
+          maxretry = 3
+          port = http,https
+          banaction = firewallcmd-multiport
+
     - name: Removing the faulty defaults-debian.conf that does not use systemd
       ansible.builtin.file:
         path: /etc/fail2ban/jail.d/defaults-debian.conf

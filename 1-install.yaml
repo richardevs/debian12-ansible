@@ -59,6 +59,7 @@
           - vnstat
           - fail2ban
           - ssl-cert
+          - conntrack
           - python3-pymysql
           - systemd-timesyncd
           - unattended-upgrades
@@ -76,6 +77,12 @@
       ansible.builtin.copy:
         src: files/50unattended-upgrades
         dest: /etc/apt/apt.conf.d/50unattended-upgrades
+        backup: yes
+
+    - name: NeverAutoRemove mariadb-plugin-provider-* (false-positive issue)
+      ansible.builtin.copy:
+        src: files/01autoremove
+        dest: /etc/apt/apt.conf.d/01autoremove
         backup: yes
 
     - name: Load and execute Ansible NGINX Role
