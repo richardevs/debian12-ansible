@@ -18,7 +18,7 @@
         url: https://ssl-config.mozilla.org/ffdhe2048.txt
         dest: /etc/nginx/dhparam
 
-    - name: Copying ssl_trusted_certificate (Let’s Encrypt R3 + ISRG Root X1)...
+    - name: Copying ssl_trusted_certificate (Let’s Encrypt E6 + ISRG Root X1)...
       ansible.builtin.copy:
         src: files/lets_encrypt
         dest: /etc/nginx/lets_encrypt

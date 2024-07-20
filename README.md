@@ -54,6 +54,9 @@ drwxr-xr--  9 user1 user1 4.0K Nov  5 00:00 folder
 - Following [Mozilla's SSL best practices](https://ssl-config.mozilla.org/) (Modern)
 - HTTP/2, all HTTP traffic is redirected to HTTPs, denies all traffic that doesn't properly uses SNI
 
+***NOTE***  
+[Testing OCSP Stapling](https://www.feistyduck.com/library/openssl-cookbook/online/testing-with-openssl/testing-ocsp-stapling.html)  
+
 ### 5-acme-sh.yaml
 
 - Automate the installation and set up of acme.sh

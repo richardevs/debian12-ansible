@@ -9,6 +9,7 @@
 
 # How-to:
 # ansible-playbook -i settings.yaml main.yaml -v
+# In re-runs: ansible-playbook -i settings.yaml main.yaml --check --diff
 
 ---
 
