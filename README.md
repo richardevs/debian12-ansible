@@ -16,7 +16,7 @@ This playbook is not intended for "clone and play", although `main.yaml` should 
 
 ### 1-install.yaml
 
-- MariaDB 10.11 (LTS) and the default stable PHP 8.2 version on Debian 12 (I opted not to go for the unstable distribution in order to get the current latest e.g. 8.2.12)
+- MariaDB 11.4 (LTS) and the default stable PHP 8.2 version on Debian 12 (I opted not to go for the unstable distribution in order to get the current latest e.g. 8.2.12)
 - Using BBR congestion control
 - Using NGINX's official Ansible Role (Mainline by default)
 - Unattended-Upgrade to keep the system up-to-date on patches

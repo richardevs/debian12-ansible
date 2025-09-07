@@ -95,12 +95,12 @@
         keyring: /etc/apt/keyrings/mariadb-keyring.pgp
         state: present
 
-    - name: Copying MariaDB repository (10.11 - LTS)
+    - name: Copying MariaDB repository (11.4 - LTS)
       ansible.builtin.copy:
         src: files/mariadb.sources
         dest: /etc/apt/sources.list.d/mariadb.sources
 
-    - name: Installing MariaDB repository (10.11)
+    - name: Installing MariaDB repository
       ansible.builtin.apt:
         name:
           - mariadb-server
